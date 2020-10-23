@@ -28,15 +28,16 @@ token_dest = ''
 headers_source = {}
 headers_dest = {}
 
-print('This tool assists with common UBC migration tasks. Each operation is disjointed and optional, but all of these operations may be combined if desired. Option selections can be chosen based on a particular use-case in mind.\n\n')
-
-print('User migration requirements: ')
-print(' - Admin priviledges in source and destination repositories')
-
-print('Repository creation/data transfer requirements: ')
-print(' - Owner priviliges in Organization storing repositories')
-
 def main():
+
+    print('This tool assists with common UBC migration tasks. Each operation is disjointed and optional, but all of these operations may be combined if desired. Option selections can be chosen based on a particular use-case in mind.\n\n')
+
+    print('User migration requirements: ')
+    print(' - Admin priviledges in source and destination repositories')
+
+    print('Repository creation/data transfer requirements: ')
+    print(' - Owner priviliges in Organization storing repositories\n\n')
+    
     print('1. Migrate Users')
     print('2. Migrate Repositories')
     print('3. Exit')
