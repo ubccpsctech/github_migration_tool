@@ -31,20 +31,17 @@ token_dest = ''
 headers_source = {}
 headers_dest = {}
 
+print('Tips: If you are an admin, lock the source repository so users cannot push to the source repository during the migration. ')
+
 print('A Github migration requires a source and destination repository to work with. Please enter the source and destination repositories in Https format (ie. https://api_token@github.enterprise.instance/org_or_owner/repo_name')
 clone_source_url = input('Source repository: ').strip()
 # full_dest_url = input('Destination repository: ').strip()
 params_source = clone_source_url.split('/')
-# params_dest = full_dest_url.split('/')
 
 github_source = params_source[0] + '//' + params_source[2] + '/api/v3/'
-# github_dest = params_dest[0] + '//' + params_dest[2] + '/api/v3/'
 repo_source = params_source[4]
-# repo_dest = params_dest[4]
 org_name_source = params_source[3]
-# org_name_dest = params_dest[3]
 api_token_source = params_source[2].split('@')[0]
-# api_token_dest = params_dest[2].split('@')[0]
 
 # if len(api_token_source) == 0:
 #     raise Exception('API token must be defined for source and destination repositories.') 
@@ -109,21 +106,7 @@ def get_org(address):
     return repo_address_dest
 
 def migrate_users():
-    ## This can all be greatly simplified by parsing a URL link with a token included
     print('This operation copies the collaborators and their privileges on a repository to a new repository.')
-    # params_source = input('Enter the repo to copy users from (https://api_token@github.enterprise.instance/org_or_owner/repo_name): ').strip().split('/')
-    # params_dest = input('Enter the repo to copy users from (https://api_token@github.enterprise.instance/org_or_owner/repo_name): ').strip().split('/')
-
-    # github_source = params_source[0] + '//' + params_source[2] + '/api/v3/'
-    # github_dest = params_dest[0] + '//' + params_dest[2] + '/api/v3/'
-    # repo_source = params_source[4]
-    # repo_dest = params_dest[4]
-    # org_name_source = params_source[3]
-    # org_name_dest = params_dest[3]
-
-    # Want tokens from env for user ease of use
-    # api_token_source = params_source[2].split('@')[0]
-    # api_token_dest = params_source[2].split('@')[0]
 
     headers_source = set_header(config['token_source'])
     headers_dest = set_header(config['token_dest'])
@@ -146,7 +129,7 @@ def migrate_users():
         role = get_user_role(github_source, org_name_source, repo_source, user, headers_source)
         user_roles_source_list.append({'login': user, 'role': role})
 
-    print('AUDIT USERS ON SOURCE REPOSITORY', str(user_roles_source_list))
+    print('Users on Source Repository:', str(user_roles_source_list))
     print('\n')
 
     for user in user_roles_source_list:
@@ -158,10 +141,9 @@ def migrate_users():
         except:
             user_roles_failed_add_list.append({'login': user['login'], 'role': user['role']})
 
-    print('AUDIT USERS ON DEST REPOSITORY', str(user_roles_dest_list))
+    print('Users on destination repository: ', str(user_roles_dest_list))
     print('\n')
-    print('AUDIT USERS FAILED ADD TO DEST REPOSITORY', str(user_roles_failed_add_list))
-    print('Complete')
+    print('ERROR: Users who could not be added to destination repository: ', str(user_roles_failed_add_list))
     sys.exit(0)
 
 def copy_repo(copy_settings = True):
