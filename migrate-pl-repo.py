@@ -42,8 +42,8 @@ repo_source = params_source[4]
 org_name_source = params_source[3]
 api_token_source = params_source[2].split('@')[0]
 
-github_dest = 'github_dest' in config or None
-org_name_dest = 'org_name_dest' in config or None
+github_dest = 'github_dest' in config and config['github_dest']
+org_name_dest = 'org_name_dest' in config and config['org_name_dest']
 
 # if len(api_token_source) == 0:
 #     raise Exception('API token must be defined for source and destination repositories.')
@@ -134,7 +134,6 @@ def migrate_users():
         if user_profile is None:
             users_no_profile.append(user_login)
 
-
     user_roles_source_list = []
     user_roles_dest_list = []
     user_roles_failed_add_list = []
@@ -172,8 +171,9 @@ def copy_repo(copy_settings = True):
     res = create_repo(github_dest, org_name_dest, repo_dest, headers_dest, source_repo_data)
 
 def get_repo_users(github_domain, org_name, repo, headers):
-    endpoint_url = urljoin(github_domain, 'repos/{0}/{1}/contributors'.format(org_name, repo))
-    json = request(endpoint_url, headers).json()
+    endpoint_url = urljoin(github_domain, 'repos/{0}/{1}/collaborators'.format(org_name, repo))
+    res = request(endpoint_url, headers, data={'affiliation': 'direct'})
+    json = res.json()
     users_list = []
     for user in json:
         users_list.append(user['login'])
@@ -196,7 +196,7 @@ def create_repo(github_domain, org_name, repo_name, headers, options = {}):
     return res.json()
 
 def get_repo(github_domain, org_name, repo_name, headers):
-    endpoint_url = urljoin(github_domain, 'repos/{0}/{1}'.format(org_name, repo_name))
+    endpoint_url = urljoin(github_domain, 'repos/{0}/{1}').format(org_name, repo_name)
     res = request(endpoint_url, headers)
     if res.status_code == 200:
         return res.json()
