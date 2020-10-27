@@ -12,7 +12,7 @@
 
 Since we are reading and writing to and from two separate Github Enterprise instances, we need two tokens to read/write and access API functions:
 
-- Create `config.ini` file in root directory.
+- [ ] Create `config.ini` file in root directory.
 
 ```
 [DEFAULT]
