@@ -35,7 +35,6 @@ print('Tips: If you are an admin, lock the source repository so users cannot pus
 
 print('A Github migration requires a source and destination repository to work with. Please enter the source and destination repositories in Https format (ie. https://api_token@github.enterprise.instance/org_or_owner/repo_name')
 clone_source_url = input('Source repository: ').strip()
-# full_dest_url = input('Destination repository: ').strip()
 params_source = clone_source_url.split('/')
 
 github_source = params_source[0] + '//' + params_source[2] + '/api/v3/'
@@ -43,11 +42,18 @@ repo_source = params_source[4]
 org_name_source = params_source[3]
 api_token_source = params_source[2].split('@')[0]
 
-# if len(api_token_source) == 0:
-#     raise Exception('API token must be defined for source and destination repositories.') 
+github_dest = 'github_dest' in config or None
+org_name_dest = 'org_name_dest' in config or None
 
-github_dest = input('Enter github destination mx domain (ie. https://learning.github.ubc.ca): ').strip() + '/api/v3/'
-org_name_dest = input('Enter destination organization name or personal repository space (ie. ubccpsctech): ').strip()
+# if len(api_token_source) == 0:
+#     raise Exception('API token must be defined for source and destination repositories.')
+
+if github_dest is None:
+    github_dest = input('Enter github destination mx domain (ie. https://learning.github.ubc.ca): ').strip() + '/api/v3/'
+if org_name_dest is None:
+    org_name_dest = input('Enter destination organization name or personal repository space (ie. ubccpsctech): ').strip()
+
+# Want to always ask for the repo destination
 repo_dest = input('Enter destination repository address: ').strip()
 
 
@@ -115,11 +121,19 @@ def migrate_users():
     source_repo = get_repo(github_source, org_name_source, repo_source, headers_source)
     dest_repo = get_repo(github_dest, org_name_source, repo_source, headers_dest)
     options = {}
-    if dest_repo is not None:
+    if dest_repo is None:
         create_repo(github_source, org_name_dest, repo_dest, headers_dest)
 
-    users_source_list = get_users(github_source, org_name_source, repo_source, headers_source)
-    users_dest_list = get_users(github_dest, org_name_dest, repo_dest, headers_dest)
+    users_source_list = get_repo_users(github_source, org_name_source, repo_source, headers_source)
+    users_dest_list = get_repo_users(github_dest, org_name_dest, repo_dest, headers_dest)
+    users_no_profile = []
+    users_with_profile = []
+
+    for user_login in users_source_list:
+        user_profile = get_user_profile(github_dest, user_login, headers_dest)
+        if user_profile is None:
+            users_no_profile.append(user_login)
+
 
     user_roles_source_list = []
     user_roles_dest_list = []
@@ -128,6 +142,13 @@ def migrate_users():
     for user in users_source_list:
         role = get_user_role(github_source, org_name_source, repo_source, user, headers_source)
         user_roles_source_list.append({'login': user, 'role': role})
+
+    ## Warning. May not want to proceed until all users are active on new Github Enterprise respository
+    if len(user_roles_dest_list) > 0:
+        print('Warning: These users cannot be added to the destination repository, as they do not exist on the destination Github Enterprise instance.')
+        proceed = input('Are you sure you want to proceed? y/n ')
+        if proceed != 'yes' and proceed != 'y':
+            sys.exit(0)
 
     print('Users on Source Repository:', str(user_roles_source_list))
     print('\n')
@@ -150,7 +171,7 @@ def copy_repo(copy_settings = True):
     source_repo_data = get_repo(github_source, org_name_source, repo_source, headers_source)
     res = create_repo(github_dest, org_name_dest, repo_dest, headers_dest, source_repo_data)
 
-def get_users(github_domain, org_name, repo, headers):
+def get_repo_users(github_domain, org_name, repo, headers):
     endpoint_url = urljoin(github_domain, 'repos/{0}/{1}/contributors'.format(org_name, repo))
     json = request(endpoint_url, headers).json()
     users_list = []
@@ -159,7 +180,7 @@ def get_users(github_domain, org_name, repo, headers):
     return users_list
 
 def get_user_role(github_domain, org_name, repo_name, user, headers):
-    endpoint_url = urljoin(github_domain, 'repos/{0}/{1}/collaborators/{2}/permission').format(org_name, repo_name, user)
+    endpoint_url = urljoin(github_domain, 'repos/{0}/{1}/collaborators/{2}/permission'.format(org_name, repo_name, user))
     role = request(endpoint_url, headers).json()['permission']
     return role
 
@@ -175,7 +196,15 @@ def create_repo(github_domain, org_name, repo_name, headers, options = {}):
     return res.json()
 
 def get_repo(github_domain, org_name, repo_name, headers):
-    endpoint_url = urljoin(github_domain, 'repos/{0}/{1}').format(org_name, repo_name)
+    endpoint_url = urljoin(github_domain, 'repos/{0}/{1}'.format(org_name, repo_name))
+    res = request(endpoint_url, headers)
+    if res.status_code == 200:
+        return res.json()
+    else:
+        return None
+
+def get_user_profile(github_domain, user_login, headers):
+    endpoint_url = urljoin(github_domain, 'users/{0}'.format(user_login))
     res = request(endpoint_url, headers)
     if res.status_code == 200:
         return res.json()
