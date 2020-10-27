@@ -31,7 +31,7 @@ token_dest = ''
 headers_source = {}
 headers_dest = {}
 
-print('Github migrations require a source and destination repository to work with. Please enter the source and destination repositories in Https format (ie. https://api_token@github.enterprise.instance/org_or_owner/repo_name')
+print('A Github migration requires a source and destination repository to work with. Please enter the source and destination repositories in Https format (ie. https://api_token@github.enterprise.instance/org_or_owner/repo_name')
 clone_source_url = input('Source repository: ').strip()
 # full_dest_url = input('Destination repository: ').strip()
 params_source = clone_source_url.split('/')
@@ -48,6 +48,11 @@ api_token_source = params_source[2].split('@')[0]
 
 # if len(api_token_source) == 0:
 #     raise Exception('API token must be defined for source and destination repositories.') 
+
+github_dest = input('Enter github destination mx domain (ie. https://learning.github.ubc.ca): ').strip() + '/api/v3/'
+org_name_dest = input('Enter destination organization name or personal repository space (ie. ubccpsctech): ').strip()
+repo_dest = input('Enter destination repository address: ').strip()
+
 
 def main():
 
@@ -85,10 +90,6 @@ def push_dest_repo():
     headers_dest = set_header(config['token_dest'])
 
     source_repo = get_repo(github_source, org_name_source, repo_source, headers_source)
-
-    github_dest = input('Enter github destination mx domain (ie. https://learning.github.ubc.ca): ').strip() + '/api/v3/'
-    org_name_dest = input('Enter destination organization name or personal repository space (ie. ubccpsctech): ').strip()
-    repo_dest = input('Enter destination repository address: ').strip()
     
     clone_dest_url = urljoin(('https://' + config['token_dest'] + '@' + github_dest.replace('/api/v3/', '').replace('https://', 
     '')), (org_name_dest + '/' + repo_dest))
