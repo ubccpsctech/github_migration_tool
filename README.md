@@ -1,6 +1,6 @@
 # Github Migration Tool
 
-Supported Operations: 
+## Supported Operations
 
 - Migrate Users from one Github Enterprise instance repository to another 
   - Prints user list of those who cannot be migrated (ie. they have not created a Github Enterprise user account by logging in)
@@ -8,7 +8,7 @@ Supported Operations:
   - Copies all branches with --mirror flag
   - Copies permissions from initial repository (this can be built out with include more refined permissions)
 
-Instructions:
+## Instructions
 
 Since we are reading and writing to and from two separate Github Enterprise instances, we need two tokens to read/write and access API functions:
 
