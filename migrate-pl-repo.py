@@ -11,16 +11,18 @@
 #
 
 # Imports
-import os
-from re import fullmatch
 import sys
-import re
 import time
 import requests
 from subprocess import Popen
 from urllib.parse import urljoin
+from configparser import ConfigParser
 
-SOURCE_FS_PATH = 'source_repo'
+TEMP_FILE_PATH = 'temp'
+
+config = ConfigParser()
+config.read('config.ini')
+config = config['DEFAULT']
 
 repo_address_source = ''
 repo_address_dest = ''
@@ -30,22 +32,22 @@ headers_source = {}
 headers_dest = {}
 
 print('Github migrations require a source and destination repository to work with. Please enter the source and destination repositories in Https format (ie. https://api_token@github.enterprise.instance/org_or_owner/repo_name')
-full_source_url = input('Source repository: ').strip()
-full_dest_url = input('Destination repository: ').strip()
-params_source = full_source_url.split('/')
-params_dest = full_dest_url.split('/')
+clone_source_url = input('Source repository: ').strip()
+# full_dest_url = input('Destination repository: ').strip()
+params_source = clone_source_url.split('/')
+# params_dest = full_dest_url.split('/')
 
 github_source = params_source[0] + '//' + params_source[2] + '/api/v3/'
-github_dest = params_dest[0] + '//' + params_dest[2] + '/api/v3/'
+# github_dest = params_dest[0] + '//' + params_dest[2] + '/api/v3/'
 repo_source = params_source[4]
-repo_dest = params_dest[4]
+# repo_dest = params_dest[4]
 org_name_source = params_source[3]
-org_name_dest = params_dest[3]
+# org_name_dest = params_dest[3]
 api_token_source = params_source[2].split('@')[0]
-api_token_dest = params_dest[2].split('@')[0]
+# api_token_dest = params_dest[2].split('@')[0]
 
-if len(api_token_source) == 0 or len(api_token_dest) == 0:
-    raise Exception('API token must be defined for source and destination repositories.') 
+# if len(api_token_source) == 0:
+#     raise Exception('API token must be defined for source and destination repositories.') 
 
 def main():
 
@@ -74,25 +76,33 @@ def main():
 
 def clone_source_repo():
     # repo_address = input('Enter the source repository address to copy: ').strip()
-    os.system('echo Removing any pre-existing migration data')
-    Popen(['rm', '-rf', SOURCE_FS_PATH])
-    Popen(['git', 'clone', '--mirror', full_source_url, SOURCE_FS_PATH]).wait()
+    print('Removing any pre-existing migration data')
+    Popen(['rm', '-rf', TEMP_FILE_PATH])
+    Popen(['git', 'clone', '--mirror', clone_source_url, TEMP_FILE_PATH]).wait()
 
 def push_dest_repo():
-    headers_source = set_header(api_token_source)
-    headers_dest = set_header(api_token_dest)
+    headers_source = set_header(config['token_source'])
+    headers_dest = set_header(config['token_dest'])
 
     source_repo = get_repo(github_source, org_name_source, repo_source, headers_source)
 
+    github_dest = input('Enter github destination mx domain (ie. https://learning.github.ubc.ca): ').strip() + '/api/v3/'
+    org_name_dest = input('Enter destination organization name or personal repository space (ie. ubccpsctech): ').strip()
+    repo_dest = input('Enter destination repository address: ').strip()
+    
+    clone_dest_url = urljoin(('https://' + config['token_dest'] + '@' + github_dest.replace('/api/v3/', '').replace('https://', 
+    '')), (org_name_dest + '/' + repo_dest))
+    print('Uploading repository mirror clone to ' + clone_dest_url)
+
     ## Can customize options to migrate: https://developer.github.com/v3/repos/#create-an-organization-repository
-    options = {'private': source_repo['private'], 'description': source_repo['description']}
-    dest_repo = get_repo(github_dest, org_name_dest, repo_dest, headers_dest)
-    if dest_repo is not None: 
-        Popen(['git', 'push', '--mirror', full_dest_url], cwd=SOURCE_FS_PATH).wait()
+    dest_repo = get_repo(github_source, org_name_dest, repo_dest, headers_dest)
+    if dest_repo is not None:
+        Popen(['git', 'push', '--mirror', clone_dest_url], cwd=TEMP_FILE_PATH).wait()
     else:
+        options = {'private': source_repo['private'], 'description': source_repo['description']}
         create_repo(github_dest, org_name_dest, repo_dest, headers_dest, options)
         time.sleep(2)
-        Popen(['git', 'push', '--mirror', full_dest_url], cwd=SOURCE_FS_PATH).wait()
+        Popen(['git', 'push', '--mirror', clone_dest_url], cwd=TEMP_FILE_PATH).wait()
 
 def get_org(address):
     return repo_address_dest
@@ -109,11 +119,13 @@ def migrate_users():
     # repo_dest = params_dest[4]
     # org_name_source = params_source[3]
     # org_name_dest = params_dest[3]
+
+    # Want tokens from env for user ease of use
     # api_token_source = params_source[2].split('@')[0]
     # api_token_dest = params_source[2].split('@')[0]
 
-    headers_source = set_header(api_token_source)
-    headers_dest = set_header(api_token_dest)
+    headers_source = set_header(config['token_source'])
+    headers_dest = set_header(config['token_dest'])
 
     # If repo does not already exist, it should be created with same permissions
     source_repo = get_repo(github_source, org_name_source, repo_source, headers_source)
@@ -134,7 +146,7 @@ def migrate_users():
         user_roles_source_list.append({'login': user, 'role': role})
 
     print('AUDIT USERS ON SOURCE REPOSITORY', str(user_roles_source_list))
-    print('\n\n\n')
+    print('\n')
 
     for user in user_roles_source_list:
         ## 204 when already added, 201 when newly added
@@ -145,9 +157,8 @@ def migrate_users():
         except:
             user_roles_failed_add_list.append({'login': user['login'], 'role': user['role']})
 
-
     print('AUDIT USERS ON DEST REPOSITORY', str(user_roles_dest_list))
-    print('\n\n\n')
+    print('\n')
     print('AUDIT USERS FAILED ADD TO DEST REPOSITORY', str(user_roles_failed_add_list))
     print('Complete')
     sys.exit(0)
@@ -174,12 +185,11 @@ def add_user_to_repo(github_domain, org_name, repo_name, user_login, user_role, 
     res = request(endpoint_url, headers, 'PUT', data={'permission': user_role})
     return res
 
-
 def create_repo(github_domain, org_name, repo_name, headers, options = {}):
     options['name'] = repo_name
-    endpoint_url = urljoin(github_domain, 'orgs/{0}/repos').format(org_name)
-    res = request(endpoint_url, headers, 'POST', options).json()
-    return res
+    endpoint_url = urljoin(github_domain, 'orgs/{0}/repos'.format(org_name))
+    res = request(endpoint_url, headers, 'POST', options)
+    return res.json()
 
 def get_repo(github_domain, org_name, repo_name, headers):
     endpoint_url = urljoin(github_domain, 'repos/{0}/{1}').format(org_name, repo_name)
