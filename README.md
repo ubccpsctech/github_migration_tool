@@ -20,10 +20,10 @@ token_source = xyz
 token_dest = xyz
 ```
 
-- [] Add source Github Enteprise instance token to `config.ini`
+- [ ] Add source Github Enteprise instance token to `config.ini`
   - To create a token: Login to Github Enterprise --> User Settings --> Developer Settings
   - Note: developed with Owner organization privileges (read repo level could be adequate)
-- [] Add destination Github Enterprise instance token to `config.ini`
+- [ ] Add destination Github Enterprise instance token to `config.ini`
   - To create a token: Login to Github Enterprise --> User Settings --> Developer Settings
   - Note: developed with Owner organization privileges (permissions to create and write repo could be adequate)
 
