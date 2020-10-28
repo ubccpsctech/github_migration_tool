@@ -1,5 +1,17 @@
 # Github Migration Tool
 
+## Overview
+
+The migration of Github repositories are supported within the application if the repository is migrated from organization to organization within the same Github Enterprise application. A Github migration tool also exists to help admins migrate Github reopsitories (with issues and other repository assets, etc.), but requires site admin permissions.
+
+This Github migration tool is for a use-case where an organization member has owner permissions in each repository and wants to migrate all branches of the Github repository, repository collaborators, and repository teams.
+
+Pre-requisites for a smooth migration:
+
+- Everyone has logged into the destination Github Enterprise instance to ensure that their account user name exists.
+- Access token produced under `Developer Settings` within the `User Settings`.
+- Ideally, `Owner` permissions of the organization, or `admin` repository permissions (you may not be allowed to create a repo though)
+
 ## Supported Operations
 
 - Migrate Users from one Github Enterprise instance repository to another 

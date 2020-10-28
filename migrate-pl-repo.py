@@ -67,7 +67,7 @@ def main():
     print('Repository creation/data transfer requirements: ')
     print(' - Owner priviliges in Organization storing repositories\n\n')
 
-    print('1. Migrate Users')
+    print('1. Migrate Users and Teams')
     print('2. Migrate Repositories')
     print('3. Exit')
     selection = int(input('Select option: ').strip())
@@ -111,6 +111,7 @@ def push_dest_repo():
 def get_org(address):
     return repo_address_dest
 
+# LDAP functionality has not been considered or implemented. This is native Github user migration logic
 def migrate_users():
     print('This operation copies the collaborators and their privileges on a repository to a new repository.')
 
@@ -120,11 +121,26 @@ def migrate_users():
     # If repo does not already exist, it should be created with same permissions
     source_repo = get_repo(github_source, org_name_source, repo_source, headers_source)
     dest_repo = get_repo(github_dest, org_name_source, repo_source, headers_dest)
-    options = {}
+
+    options = {'private': source_repo['private'], 'description': source_repo['description']}
     if dest_repo is None:
-        create_repo(github_source, org_name_dest, repo_dest, headers_dest)
+        create_repo(github_dest, org_name_dest, repo_dest, headers_dest, options)
 
     users_source_list = get_repo_users(github_source, org_name_source, repo_source, headers_source)
+    teams_source_list = get_repo_teams(github_source, org_name_source, repo_source, headers_source)
+    
+    for team in teams_source_list:
+        team_members = get_team_members(github_source, org_name_dest, team['slug'], headers_source)
+        team_options = {'name': team['name'], 'description': team['description'], 'permission': team['permission'], 'maintainers': team_members}
+        create_team(github_dest, org_name_dest, team_options, headers_dest)
+        add_team_to_repo(github_dest, org_name_source, team['slug'], repo_dest, headers_dest)
+
+        # remove these so we do not add them as collaborators when they are already on a team
+        for team_member_login in team_members:
+            index = users_source_list.index(team_member_login)
+            if index >= 0:
+                users_source_list.pop(index)
+
     users_dest_list = get_repo_users(github_dest, org_name_dest, repo_dest, headers_dest)
     users_no_profile = []
     users_with_profile = []
@@ -155,30 +171,73 @@ def migrate_users():
     for user in user_roles_source_list:
         ## 204 when already added, 201 when newly added
         res = add_user_to_repo(github_dest, org_name_dest, repo_dest, user['login'], user['role'], headers_dest)
-        try:
-            if res.status_code == 204 or res.status_code == 201:
-                user_roles_dest_list.append({'login': user['login'], 'role': user['role']})
-        except:
+        if res.status_code == 204 or res.status_code == 201:
+            user_roles_dest_list.append({'login': user['login'], 'role': user['role']})
+        else:
             user_roles_failed_add_list.append({'login': user['login'], 'role': user['role']})
 
     print('Users on destination repository: ', str(user_roles_dest_list))
     print('\n')
-    print('ERROR: Users who could not be added to destination repository: ', str(user_roles_failed_add_list))
+    print('Users who could not be added to destination repository: ', str(user_roles_failed_add_list))
     sys.exit(0)
-
-def copy_repo(copy_settings = True):
-    source_repo_data = get_repo(github_source, org_name_source, repo_source, headers_source)
-    res = create_repo(github_dest, org_name_dest, repo_dest, headers_dest, source_repo_data)
 
 def get_repo_users(github_domain, org_name, repo, headers):
     endpoint_url = urljoin(github_domain, 'repos/{0}/{1}/collaborators'.format(org_name, repo))
-    res = request(endpoint_url, headers, data={'affiliation': 'direct'})
+    # GITHUB BUG: this option does not work. All users are retrieved.
+    options = {'affiliation': 'outside'}
+    res = request(endpoint_url, headers, 'GET', options)
     json = res.json()
     users_list = []
+
+    # Filters out Anth and myself because we always show up as collaborators even though we are not
+    # Might want to fill out a bug report for Github's collaborator endpoint
     for user in json:
-        users_list.append(user['login'])
+        if user['site_admin'] == False and user['login'] != 'steca':
+            users_list.append(user['login'])
     return users_list
 
+def get_repo_teams(github_domain, org_name, repo, headers):
+    endpoint_url = urljoin(github_domain, 'repos/{0}/{1}/teams'.format(org_name, repo))
+    res = request(endpoint_url, headers, 'GET')
+    json = res.json()
+    return json
+
+def get_team_members(github_domain, org_name, team_slug, headers):
+    endpoint_url = urljoin(github_domain, 'orgs/{0}/teams/{1}/members'.format(org_name, team_slug))
+    res = request(endpoint_url, headers, 'GET')
+    json = res.json()
+    team_members = []
+    for team_member in json:
+        team_members.append(team_member['login'])
+    return team_members
+
+# duplciate?
+# def get_team_members(github_domain, org_name, team_slug, headers):
+#     endpoint_url = urljoin(github_domain, 'orgs/{0}/teams/{1}}'.format(org_name, team_slug))
+#     res = request(endpoint_url, headers, 'GET')
+#     json = res.json()
+#     team_members = []
+#     for team_member in json:
+#         team_members.append({'login': team_member['login']})
+#     return team_members
+
+# https://developer.github.com/v3/teams/#create-a-team
+def create_team(github_domain, org_name, team_options, headers):
+    endpoint_url = urljoin(github_domain, 'orgs/{0}/teams'.format(org_name))
+    res = request(endpoint_url, headers, 'GET', team_options)
+    json = res
+    if res.status_code == 201:
+        return res.json()
+    return None
+
+# https://developer.github.com/v3/teams/#add-or-update-team-repository-permissions
+def add_team_to_repo(github_name, org_name, team_slug, repo_name, headers):
+    endpoint_url = urljoin(github_name, 'orgs/{0}/teams/{1}/repos/{0}/{2}'.format(org_name, team_slug, repo_name))
+    res = request(endpoint_url, headers, 'PUT')
+    if res.status_code == 204:
+        return res
+    return None
+    
 def get_user_role(github_domain, org_name, repo_name, user, headers):
     endpoint_url = urljoin(github_domain, 'repos/{0}/{1}/collaborators/{2}/permission'.format(org_name, repo_name, user))
     role = request(endpoint_url, headers).json()['permission']
