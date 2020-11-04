@@ -68,7 +68,7 @@ def main():
     print(' - Owner priviliges in Organization storing repositories\n\n')
 
     print('1. Migrate Users and Teams')
-    print('2. Migrate Repositories')
+    print('2. Migrate Repository Contents (each remote branch)')
     print('3. Exit')
     selection = int(input('Select option: ').strip())
     if selection == 1:
@@ -210,16 +210,6 @@ def get_team_members(github_domain, org_name, team_slug, headers):
     for team_member in json:
         team_members.append(team_member['login'])
     return team_members
-
-# duplciate?
-# def get_team_members(github_domain, org_name, team_slug, headers):
-#     endpoint_url = urljoin(github_domain, 'orgs/{0}/teams/{1}}'.format(org_name, team_slug))
-#     res = request(endpoint_url, headers, 'GET')
-#     json = res.json()
-#     team_members = []
-#     for team_member in json:
-#         team_members.append({'login': team_member['login']})
-#     return team_members
 
 # https://developer.github.com/v3/teams/#create-a-team
 def create_team(github_domain, org_name, team_options, headers):
